@@ -26,9 +26,9 @@ fn main() {
         .lines()
         .map(|x| {
             let line = x.unwrap();
-            let (first, second) = line.split_once(",").unwrap();
-            let (a, b) = first.split_once("-").unwrap();
-            let (c, d) = second.split_once("-").unwrap();
+            let (first, second) = line.split_once(',').unwrap();
+            let (a, b) = first.split_once('-').unwrap();
+            let (c, d) = second.split_once('-').unwrap();
             let a = a.parse::<u32>().unwrap();
             let b = b.parse::<u32>().unwrap();
             let c = c.parse::<u32>().unwrap();
