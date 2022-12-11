@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 BASEDIR=$(realpath $(dirname $0))
-for i in {01..09}
+for i in {01..10}
 do
     echo "Day $i"
     echo "------"
