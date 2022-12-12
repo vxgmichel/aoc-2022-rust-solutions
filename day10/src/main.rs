@@ -61,9 +61,9 @@ fn solve2(xs: &[Operation]) -> String {
             result.push('\n')
         }
         if ((cycle % 40) as i32 - register).abs() <= 1 {
-            result.push('\u{2588}')
+            result.push_str("\u{2588}\u{2588}")
         } else {
-            result.push(' ')
+            result.push_str("  ")
         }
         match state {
             State::Fetch => match it.next() {
