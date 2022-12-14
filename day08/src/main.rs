@@ -42,7 +42,7 @@ fn solve(grid: &[Vec<u32>]) -> u32 {
 
 // Part 2
 
-fn distance(iter: &mut dyn Iterator<Item = &u32>) -> u32 {
+fn distance<'a, T: Iterator<Item = &'a u32>>(iter: &mut T) -> u32 {
     let start = iter.next().unwrap();
     let mut result = 0;
     for x in iter {
