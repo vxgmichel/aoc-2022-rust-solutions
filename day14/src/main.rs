@@ -9,7 +9,8 @@ type Grid = Vec<Vec<char>>;
 
 const EMPTY: char = ' ';
 const ROCK: char = '\u{2588}';
-const SAND: char = '\u{2591}';
+const SAND: char = '\u{2592}';
+const FALLING: char = '\u{2591}';
 
 fn parse_line(line: &str) -> Vec<Position> {
     line.split(" -> ")
@@ -33,12 +34,14 @@ fn draw_segment(grid: &mut Grid, start: Position, stop: Position, offset_x: usiz
     draw_segment(grid, mid, stop, offset_x);
 }
 
-fn add_sand(grid: &mut Grid, init: Position) -> Option<Position> {
+fn add_sand(grid: &mut Grid, init: Position) -> Option<Vec<Position>> {
+    let mut result: Vec<Position> = vec![];
     let (mut x, mut y) = init;
     if grid[x][y] != EMPTY {
         return None;
     }
     loop {
+        result.push((x, y));
         let a = *grid.get(x - 1)?.get(y + 1)?;
         let b = *grid.get(x)?.get(y + 1)?;
         let c = *grid.get(x + 1)?.get(y + 1)?;
@@ -54,7 +57,8 @@ fn add_sand(grid: &mut Grid, init: Position) -> Option<Position> {
             }
             (ROCK | SAND, ROCK | SAND, ROCK | SAND) => {
                 grid[x][y] = SAND;
-                return Some((x, y));
+                result.pop();
+                return Some(result);
             }
             _ => panic!(),
         }
@@ -86,16 +90,26 @@ fn run_grid(grid: &mut Grid, init: Position, debug: bool) -> u32 {
         print!("\x1b[?1049h\x1b[?25l");
     }
     for step in 0.. {
-        if add_sand(grid, init).is_none() {
-            if debug {
-                sleep(Duration::from_secs(1));
-                print!("\x1b[?1049l\x1b[?25h");
+        let path = match add_sand(grid, init) {
+            Some(x) => x,
+            None => {
+                if debug {
+                    sleep(Duration::from_secs(1));
+                    print!("\x1b[?1049l\x1b[?25h");
+                }
+                return step;
             }
-            return step;
         };
         if debug {
+            for &(x, y) in &path {
+                assert_eq!(grid[x][y], EMPTY);
+                grid[x][y] = FALLING;
+            }
             print_grid(grid, init);
-            //sleep(Duration::from_millis(1))
+            for &(x, y) in &path {
+                grid[x][y] = EMPTY;
+            }
+            sleep(Duration::from_millis(0))
         }
     }
     panic!()
