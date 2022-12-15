@@ -8,17 +8,17 @@ fn neighbors(grid: &[Vec<u32>], node: Node) -> Vec<Node> {
     let n = grid[0].len();
     let mut result = vec![];
     let (x, y) = node;
-    let hmin = grid[x][y] - 1;
-    if x > 0 && grid[x - 1][y] >= hmin {
+    let hmin = grid[x][y] as i32 - 1;
+    if x > 0 && grid[x - 1][y] as i32 >= hmin {
         result.push((x - 1, y));
     }
-    if x < m - 1 && grid[x + 1][y] >= hmin {
+    if x < m - 1 && grid[x + 1][y] as i32 >= hmin {
         result.push((x + 1, y));
     }
-    if y > 0 && grid[x][y - 1] >= hmin {
+    if y > 0 && grid[x][y - 1] as i32 >= hmin {
         result.push((x, y - 1));
     }
-    if y < n - 1 && grid[x][y + 1] >= hmin {
+    if y < n - 1 && grid[x][y + 1] as i32 >= hmin {
         result.push((x, y + 1));
     }
     result
