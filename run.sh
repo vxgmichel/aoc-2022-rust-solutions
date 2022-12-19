@@ -6,6 +6,6 @@ do
     echo "Day $i"
     echo "------"
     cd $BASEDIR/day$i
-    cargo run $1 -q < data.txt
+    cargo run --profile=release-with-overflow-checks -q < data.txt
     echo
 done

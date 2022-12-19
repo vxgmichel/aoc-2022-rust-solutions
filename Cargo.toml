@@ -19,3 +19,7 @@ members = [
     "day17",
     "day18",
 ]
+
+[profile.release-with-overflow-checks]
+inherits="release"
+overflow-checks=true
