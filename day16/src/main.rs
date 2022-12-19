@@ -1,8 +1,7 @@
-use hashbrown::{hash_map, HashMap, HashSet};
+use std::collections::{hash_map, HashMap, HashSet};
 use std::io::{self, BufRead};
 
 type Name = [char; 2];
-type CacheKey = (Name, Name, u32, u32, u64);
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct Valve {
@@ -83,55 +82,82 @@ fn solve1(xs: &[Valve]) -> u32 {
 }
 
 fn rec2(
-    map: &HashMap<Name, &Valve>,
-    costs: &HashMap<Name, HashMap<Name, u32>>,
-    bits: &HashMap<Name, u64>,
-    key @ (state0, state1, time0, time1, opened): CacheKey,
-    cache: &mut HashMap<CacheKey, u32>,
+    destinations: &[Vec<(usize, u32)>],
+    flows: &[u32],
+    state0: usize,
+    state1: usize,
+    time0: u32,
+    time1: u32,
+    opened: u32,
 ) -> u32 {
-    if let Some(&x) = cache.get(&key) {
-        return x;
-    }
     let mut result = 0;
     if time0 >= time1 {
-        for (dest, cost) in &costs[&state0] {
-            if cost < &time0 && opened & bits[dest] == 0 {
+        for &(dest, cost) in &destinations[state0] {
+            if cost < time0 && opened & (1 << dest) == 0 {
                 let new_time = time0 - cost;
-                let gain = new_time * map[dest].flow;
-                let new_opened = opened | bits[dest];
-                let new_key = (*dest, state1, new_time, time1, new_opened);
-                result = result.max(gain + rec2(map, costs, bits, new_key, cache));
+                let gain = new_time * flows[dest];
+                let new_opened = opened | (1 << dest);
+                result = result.max(
+                    gain + rec2(
+                        destinations,
+                        flows,
+                        dest,
+                        state1,
+                        new_time,
+                        time1,
+                        new_opened,
+                    ),
+                );
             }
         }
     } else {
-        for (dest, cost) in &costs[&state1] {
-            if cost < &time1 && opened & bits[dest] == 0 {
+        for &(dest, cost) in &destinations[state1] {
+            if cost < time1 && opened & (1 << dest) == 0 {
                 let new_time = time1 - cost;
-                let gain = new_time * map[dest].flow;
-                let new_opened = opened | bits[dest];
-                let new_key = (state0, *dest, time0, new_time, new_opened);
-                result = result.max(gain + rec2(map, costs, bits, new_key, cache));
+                let gain = new_time * flows[dest];
+                let new_opened = opened | (1 << dest);
+                result = result.max(
+                    gain + rec2(
+                        destinations,
+                        flows,
+                        state0,
+                        dest,
+                        time0,
+                        new_time,
+                        new_opened,
+                    ),
+                );
             }
         }
     }
-    cache.insert(key, result);
     result
 }
 
-fn solve2(xs: &[Valve]) -> u32 {
-    let map: HashMap<Name, &Valve> = xs.iter().map(|x| (x.name, x)).collect();
-    let bits: HashMap<Name, u64> = xs
+fn solve2(all_valves: &[Valve]) -> u32 {
+    let start = ['A', 'A'];
+    let map: HashMap<Name, &Valve> = all_valves.iter().map(|x| (x.name, x)).collect();
+    let mut valves: Vec<&Valve> = all_valves.iter().filter(|x| x.flow > 0).collect();
+    // Add starting point if it's not part of the actual valves
+    if map[&start].flow == 0 {
+        valves.push(map[&start]);
+    }
+    let name_to_index: HashMap<Name, usize> = valves
         .iter()
         .enumerate()
-        .map(|(i, x)| (x.name, 1 << i))
+        .map(|(i, x)| (x.name, i))
         .collect();
-    let costs: HashMap<Name, HashMap<Name, u32>> = xs
+    let destinations: Vec<Vec<(usize, u32)>> = valves
         .iter()
-        .map(|x| (x.name, all_paths_from(&map, x.name)))
+        .map(|x| {
+            all_paths_from(&map, x.name)
+                .into_iter()
+                .map(|(name, value)| (name_to_index[&name], value))
+                .collect()
+        })
         .collect();
-    let start = ['A', 'A'];
-    let key = (start, start, 26, 26, 0);
-    rec2(&map, &costs, &bits, key, &mut HashMap::new())
+    let flows: Vec<u32> = valves.iter().map(|x| x.flow).collect();
+    let start_index = name_to_index[&start];
+    rec2(&destinations, &flows, start_index, start_index, 26, 26, 0)
 }
 
 fn main() {
