@@ -1,4 +1,5 @@
 use hashbrown::HashMap;
+use std::env;
 use std::io::{self, BufRead};
 
 type Blueprint = (u8, u8, u8, u8, u8, u8);
@@ -15,80 +16,74 @@ struct State {
 }
 
 impl State {
-    fn tick(&self) -> State {
-        State {
-            time: self.time - 1,
-            ore_robots: self.ore_robots,
-            clay_robots: self.clay_robots,
-            obsidian_robots: self.obsidian_robots,
-            ore: self.ore + self.ore_robots,
-            clay: self.clay + self.clay_robots,
-            obsidian: self.obsidian + self.obsidian_robots,
+    const STORE: u8 = 25;
+
+    fn tick(&mut self) -> Option<u8> {
+        if self.time == 0 {
+            return None;
         }
+        self.time -= 1;
+        self.ore = (self.ore + self.ore_robots).min(State::STORE);
+        self.clay = (self.clay + self.clay_robots).min(State::STORE);
+        self.obsidian = (self.obsidian + self.obsidian_robots).min(State::STORE);
+        Some(0)
     }
 
-    fn can_build_ore_robot(&self, blueprint: &Blueprint) -> bool {
-        self.ore >= blueprint.0
-    }
-
-    fn build_ore_robot(&self, blueprint: &Blueprint) -> State {
-        State {
-            time: self.time,
-            ore_robots: self.ore_robots + 1,
-            clay_robots: self.clay_robots,
-            obsidian_robots: self.obsidian_robots,
-            ore: self.ore - blueprint.0,
-            clay: self.clay,
-            obsidian: self.obsidian,
+    fn build_ore_robot(&mut self, blueprint: &Blueprint) -> Option<u8> {
+        if self.ore + self.ore_robots * (self.time - 2) < blueprint.0 {
+            return None;
         }
-    }
-
-    fn can_build_clay_robot(&self, blueprint: &Blueprint) -> bool {
-        self.ore >= blueprint.1
-    }
-
-    fn build_clay_robot(&self, blueprint: &Blueprint) -> State {
-        State {
-            time: self.time,
-            ore_robots: self.ore_robots,
-            clay_robots: self.clay_robots + 1,
-            obsidian_robots: self.obsidian_robots,
-            ore: self.ore - blueprint.1,
-            clay: self.clay,
-            obsidian: self.obsidian,
+        while self.ore < blueprint.0 {
+            self.tick()?;
         }
+        self.ore -= blueprint.0;
+        self.tick()?;
+        self.ore_robots += 1;
+        Some(0)
     }
 
-    fn can_build_obsidian_robot(&self, blueprint: &Blueprint) -> bool {
-        self.ore >= blueprint.2 && self.clay >= blueprint.3
-    }
-
-    fn build_obsidian_robot(&self, blueprint: &Blueprint) -> State {
-        State {
-            time: self.time,
-            ore_robots: self.ore_robots,
-            clay_robots: self.clay_robots,
-            obsidian_robots: self.obsidian_robots + 1,
-            ore: self.ore - blueprint.2,
-            clay: self.clay - blueprint.3,
-            obsidian: self.obsidian,
+    fn build_clay_robot(&mut self, blueprint: &Blueprint) -> Option<u8> {
+        if self.ore + self.ore_robots * (self.time - 2) < blueprint.1 {
+            return None;
         }
-    }
-
-    fn can_build_geode_robot(&self, blueprint: &Blueprint) -> bool {
-        self.ore >= blueprint.4 && self.obsidian >= blueprint.5
-    }
-
-    fn build_geode_robot(&self, blueprint: &Blueprint) -> State {
-        State {
-            time: self.time,
-            ore_robots: self.ore_robots,
-            clay_robots: self.clay_robots,
-            obsidian_robots: self.obsidian_robots,
-            ore: self.ore - blueprint.4,
-            clay: self.clay,
-            obsidian: self.obsidian - blueprint.5,
+        while self.ore < blueprint.1 {
+            self.tick()?;
         }
+        self.ore -= blueprint.1;
+        self.tick()?;
+        self.clay_robots += 1;
+        Some(0)
+    }
+
+    fn build_obsidian_robot(&mut self, blueprint: &Blueprint) -> Option<u8> {
+        if self.ore + self.ore_robots * (self.time - 2) < blueprint.2
+            || self.clay + self.clay_robots * (self.time - 2) < blueprint.3
+        {
+            return None;
+        }
+        while self.ore < blueprint.2 || self.clay < blueprint.3 {
+            self.tick()?;
+        }
+        self.ore -= blueprint.2;
+        self.clay -= blueprint.3;
+        self.tick()?;
+        self.obsidian_robots += 1;
+        Some(0)
+    }
+
+    fn build_geode_robot(&mut self, blueprint: &Blueprint) -> Option<u8> {
+        if self.ore + self.ore_robots * (self.time - 2) < blueprint.4
+            || self.obsidian + self.obsidian_robots * (self.time - 2) < blueprint.5
+        {
+            return None;
+        }
+        while self.ore < blueprint.4 || self.obsidian < blueprint.5 {
+            self.tick()?;
+        }
+        self.ore -= blueprint.4;
+        self.obsidian -= blueprint.5;
+        self.tick()?;
+        Some(self.time)
     }
 }
 
@@ -114,51 +109,31 @@ fn rec(
         *cache_hit += 1;
         return x;
     }
-    if state.time == 0 {
+    if state.time < 2 {
         return 0;
     }
-    let new_state = state.tick();
-    if state.can_build_geode_robot(blueprint) {
-        let result = new_state.time
-            + rec(
-                blueprint,
-                new_state.build_geode_robot(blueprint),
-                cache,
-                cache_hit,
-            );
-        cache.insert(state, result);
-        return result;
+    let mut result = 0;
+    let mut new_state = state;
+    if let Some(x) = new_state.build_geode_robot(blueprint) {
+        result = result.max(x + rec(blueprint, new_state, cache, cache_hit))
     }
-    let mut result = rec(blueprint, new_state, cache, cache_hit);
-    if state.can_build_ore_robot(blueprint) {
-        result = result.max(rec(
-            blueprint,
-            new_state.build_ore_robot(blueprint),
-            cache,
-            cache_hit,
-        ))
+    let mut new_state = state;
+    if let Some(x) = new_state.build_obsidian_robot(blueprint) {
+        result = result.max(x + rec(blueprint, new_state, cache, cache_hit));
     }
-    if state.can_build_clay_robot(blueprint) {
-        result = result.max(rec(
-            blueprint,
-            new_state.build_clay_robot(blueprint),
-            cache,
-            cache_hit,
-        ))
+    let mut new_state = state;
+    if let Some(x) = new_state.build_clay_robot(blueprint) {
+        result = result.max(x + rec(blueprint, new_state, cache, cache_hit))
     }
-    if state.can_build_obsidian_robot(blueprint) {
-        result = result.max(rec(
-            blueprint,
-            new_state.build_obsidian_robot(blueprint),
-            cache,
-            cache_hit,
-        ))
+    let mut new_state = state;
+    if let Some(x) = new_state.build_ore_robot(blueprint) {
+        result = result.max(x + rec(blueprint, new_state, cache, cache_hit))
     }
     cache.insert(state, result);
     result
 }
 
-fn solve1(blueprints: &[Blueprint], time: u8) -> u64 {
+fn solve1(blueprints: &[Blueprint], time: u8, debug: bool) -> u64 {
     let state = State {
         time,
         ore_robots: 1,
@@ -175,20 +150,22 @@ fn solve1(blueprints: &[Blueprint], time: u8) -> u64 {
             let mut cache_hit = 0;
             let mut cache = HashMap::new();
             let result = rec(x, state, &mut cache, &mut cache_hit);
-            println!(
-                "[{}] {:?} -> {} (miss={}, hit={})",
-                i + 1,
-                x,
-                result,
-                cache.len(),
-                cache_hit
-            );
+            if debug {
+                println!(
+                    "[{}] {:?} -> {} (miss={}, hit={})",
+                    i + 1,
+                    x,
+                    result,
+                    cache.len(),
+                    cache_hit
+                );
+            }
             (i as u64 + 1) * result as u64
         })
         .sum()
 }
 
-fn solve2(blueprints: &[Blueprint], time: u8) -> u64 {
+fn solve2(blueprints: &[Blueprint], time: u8, debug: bool) -> u64 {
     let state = State {
         time,
         ore_robots: 1,
@@ -205,18 +182,21 @@ fn solve2(blueprints: &[Blueprint], time: u8) -> u64 {
             let mut cache_hit = 0;
             let mut cache = HashMap::new();
             let result = rec(x, state, &mut cache, &mut cache_hit);
-            println!("[{}] {:?} -> {}", i + 1, x, result);
+            if debug {
+                println!("[{}] {:?} -> {}", i + 1, x, result);
+            }
             result as u64
         })
         .product()
 }
 
 fn main() {
+    let debug = env::args().any(|x| x == "--debug" || x == "-d");
     let vec: Vec<Blueprint> = io::stdin()
         .lock()
         .lines()
         .map(|x| parse_line(&x.unwrap()))
         .collect();
-    println!("Part 1: {}", solve1(&vec, 24));
-    println!("Part 2: {}", solve2(&vec[..3], 32));
+    println!("Part 1: {}", solve1(&vec, 24, debug));
+    println!("Part 2: {}", solve2(&vec[..3], 32, debug));
 }
