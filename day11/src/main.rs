@@ -67,5 +67,5 @@ fn solve(divisor: u64, rounds: usize) -> u64 {
 
 fn main() {
     println!("Part 1: {}", solve(3, 20));
-    println!("Part 1: {}", solve(1, 10000));
+    println!("Part 2: {}", solve(1, 10000));
 }

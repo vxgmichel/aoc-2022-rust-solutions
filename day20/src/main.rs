@@ -57,5 +57,5 @@ fn main() {
         .map(|x| x.unwrap().parse().unwrap())
         .collect();
     println!("Part 1: {}", solve1(&vec, 1000));
-    println!("Part 1: {}", solve2(&vec, 1000));
+    println!("Part 2: {}", solve2(&vec, 1000));
 }

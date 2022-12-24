@@ -152,5 +152,5 @@ fn main() {
         .map(|x| x.unwrap().chars().collect())
         .collect();
     println!("Part 1: {}", solve1(&vec));
-    println!("Part 1: {}", solve2(&vec, debug));
+    println!("Part 2: {}", solve2(&vec, debug));
 }
